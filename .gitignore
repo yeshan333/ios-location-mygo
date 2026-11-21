@@ -1,0 +1,17 @@
+# Build outputs & macOS bundles
+build/
+*.app/
+*.dmg
+*.icns
+
+# macOS & editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Go test / coverage artifacts
+*.test
+*.out
+coverage.txt

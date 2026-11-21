@@ -1,0 +1,2795 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iOS Location</title>
+<link rel="icon" type="image/png" href="/app-icon.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+<script>
+(() => {
+  try {
+    const saved = localStorage.getItem('ios-loc-theme');
+    if (saved === 'light' || saved === 'dark') {
+      document.documentElement.dataset.theme = saved;
+    }
+  } catch (_) {}
+})();
+</script>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #eef0f4;
+  --glass-bg: rgba(248, 249, 252, 0.78);
+  --glass-bg-strong: rgba(252, 252, 254, 0.9);
+  --glass-border: rgba(15, 23, 42, 0.09);
+  --glass-specular: rgba(255, 255, 255, 0.78);
+  --glass-shadow: 0 20px 50px rgba(0, 0, 0, 0.14), 0 4px 14px rgba(0, 0, 0, 0.06);
+  --glass-shadow-sm: 0 10px 28px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+
+  --surface: rgba(0, 0, 0, 0.04);
+  --surface-hover: rgba(0, 0, 0, 0.075);
+  --surface-elevated: rgba(255, 255, 255, 0.62);
+  --input-bg: rgba(0, 0, 0, 0.048);
+  --input-focus-bg: rgba(255, 255, 255, 0.85);
+  --divider: rgba(0, 0, 0, 0.075);
+
+  --text: #1c1c1e;
+  --text-secondary: #48484a;
+  --muted: #6e6e73;
+  --placeholder: #8e8e93;
+
+  --accent: #007aff;
+  --accent-top: #1a8cff;
+  --accent-bot: #0066e0;
+  --accent-soft: rgba(0, 122, 255, 0.12);
+  --accent-border: rgba(0, 122, 255, 0.28);
+
+  --green: #24c845;
+  --green-soft: rgba(36, 200, 69, 0.13);
+  --amber: #ff9500;
+  --red: #ff3b30;
+  --red-soft: rgba(255, 59, 48, 0.11);
+  --red-border: rgba(255, 59, 48, 0.24);
+
+  --seg-bg: rgba(0, 0, 0, 0.055);
+  --seg-active: rgba(255, 255, 255, 0.92);
+  --seg-active-shadow: 0 1px 4px rgba(0, 0, 0, 0.1), 0 0.5px 1px rgba(0, 0, 0, 0.06);
+
+  --log-well: rgba(0, 0, 0, 0.045);
+  --toast-bg: rgba(24, 24, 28, 0.88);
+  --toast-text: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161618;
+    --glass-bg: rgba(26, 26, 30, 0.76);
+    --glass-bg-strong: rgba(32, 32, 38, 0.9);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-specular: rgba(255, 255, 255, 0.14);
+    --glass-shadow: 0 24px 60px rgba(0, 0, 0, 0.54), 0 4px 16px rgba(0, 0, 0, 0.34);
+    --glass-shadow-sm: 0 12px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.28);
+
+    --surface: rgba(255, 255, 255, 0.06);
+    --surface-hover: rgba(255, 255, 255, 0.11);
+    --surface-elevated: rgba(255, 255, 255, 0.065);
+    --input-bg: rgba(0, 0, 0, 0.26);
+    --input-focus-bg: rgba(0, 0, 0, 0.38);
+    --divider: rgba(255, 255, 255, 0.09);
+
+    --text: #f5f5f7;
+    --text-secondary: #d1d1d6;
+    --muted: #98989f;
+    --placeholder: #6e6e75;
+
+    --accent: #0a84ff;
+    --accent-top: #2693ff;
+    --accent-bot: #006ae0;
+    --accent-soft: rgba(10, 132, 255, 0.18);
+    --accent-border: rgba(10, 132, 255, 0.36);
+
+    --green: #30d158;
+    --green-soft: rgba(48, 209, 88, 0.16);
+    --amber: #ff9f0a;
+    --red: #ff453a;
+    --red-soft: rgba(255, 69, 58, 0.15);
+    --red-border: rgba(255, 69, 58, 0.3);
+
+    --seg-bg: rgba(255, 255, 255, 0.075);
+    --seg-active: rgba(255, 255, 255, 0.16);
+    --seg-active-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), inset 0 0.5px 0 rgba(255, 255, 255, 0.16);
+
+    --log-well: rgba(0, 0, 0, 0.32);
+    --toast-bg: rgba(38, 38, 44, 0.92);
+    --toast-text: #f5f5f7;
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #161618;
+  --glass-bg: rgba(26, 26, 30, 0.76);
+  --glass-bg-strong: rgba(32, 32, 38, 0.9);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-specular: rgba(255, 255, 255, 0.14);
+  --glass-shadow: 0 24px 60px rgba(0, 0, 0, 0.54), 0 4px 16px rgba(0, 0, 0, 0.34);
+  --glass-shadow-sm: 0 12px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.28);
+
+  --surface: rgba(255, 255, 255, 0.06);
+  --surface-hover: rgba(255, 255, 255, 0.11);
+  --surface-elevated: rgba(255, 255, 255, 0.065);
+  --input-bg: rgba(0, 0, 0, 0.26);
+  --input-focus-bg: rgba(0, 0, 0, 0.38);
+  --divider: rgba(255, 255, 255, 0.09);
+
+  --text: #f5f5f7;
+  --text-secondary: #d1d1d6;
+  --muted: #98989f;
+  --placeholder: #6e6e75;
+
+  --accent: #0a84ff;
+  --accent-top: #2693ff;
+  --accent-bot: #006ae0;
+  --accent-soft: rgba(10, 132, 255, 0.18);
+  --accent-border: rgba(10, 132, 255, 0.36);
+
+  --green: #30d158;
+  --green-soft: rgba(48, 209, 88, 0.16);
+  --amber: #ff9f0a;
+  --red: #ff453a;
+  --red-soft: rgba(255, 69, 58, 0.15);
+  --red-border: rgba(255, 69, 58, 0.3);
+
+  --seg-bg: rgba(255, 255, 255, 0.075);
+  --seg-active: rgba(255, 255, 255, 0.16);
+  --seg-active-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), inset 0 0.5px 0 rgba(255, 255, 255, 0.16);
+
+  --log-well: rgba(0, 0, 0, 0.32);
+  --toast-bg: rgba(38, 38, 44, 0.92);
+  --toast-text: #f5f5f7;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+  background: var(--bg); color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(128, 128, 136, 0.28); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 136, 0.45); }
+
+.mono {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+svg.ic {
+  display: block;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Full-Bleed Edge-to-Edge Map Canvas ── */
+#map-wrap {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+}
+#map {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+}
+
+/* Top edge drag strip so window can always be dragged cleanly */
+#window-drag-strip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  z-index: 18;
+  --app-region: drag;
+  -webkit-app-region: drag;
+}
+
+/* ── Minimal Glass Attribution ── */
+.leaflet-control-attribution {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  color: var(--muted) !important;
+  font-size: 10px !important;
+  padding: 2px 8px !important;
+  margin: 0 14px 10px 0 !important;
+  border-radius: 999px !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  opacity: 0.8;
+  transition: opacity .2s;
+}
+.leaflet-control-attribution:hover { opacity: 1; }
+.leaflet-control-attribution a { color: var(--muted) !important; text-decoration: none; }
+
+/* ── Precision Apple-Style Reticle Crosshair ── */
+#crosshair {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1);
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+  z-index: 20;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s;
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.92)) drop-shadow(0 2px 5px rgba(0, 0, 0, 0.35));
+}
+#crosshair.moving {
+  transform: translate(-50%, -50%) scale(1.14);
+}
+#crosshair.locked-flash {
+  transform: translate(-50%, -50%) scale(0.88);
+}
+
+/* ── Animated Locked Beacon Pin ── */
+.locked-beacon {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.locked-beacon-pulse {
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  background: rgba(10, 132, 255, 0.34);
+  animation: beacon-pulse 2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+.locked-beacon-core {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #339cff 0%, #007aff 100%);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 3px 12px rgba(0, 122, 255, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+@keyframes beacon-pulse {
+  0% { transform: scale(0.45); opacity: 0.85; }
+  75% { transform: scale(1.55); opacity: 0; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+/* ── Floating Collapsed Top-Left Bar (shown when inspector is hidden) ── */
+#collapsed-bar {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  height: max(36px, calc(var(--mygo-titlebar-controls-bottom, 36px) - 12px + 12px));
+  padding: 0 6px 0 calc(max(var(--mygo-titlebar-inset-left, 80px) - 12px, 0px) + 6px);
+  border-radius: 14px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-sm), inset 0 1px 0 var(--glass-specular);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 28;
+  --app-region: drag;
+  -webkit-app-region: drag;
+  opacity: 0;
+  transform: translateX(-12px) scale(0.96);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+body.panel-collapsed #collapsed-bar {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  pointer-events: auto;
+}
+.collapsed-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--divider);
+  margin-right: 2px;
+}
+#btn-expand {
+  --app-region: no-drag;
+  -webkit-app-region: no-drag;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 550;
+}
+#btn-expand:hover { background: var(--surface-hover); }
+#collapsed-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  display: none;
+}
+#collapsed-dot.active { display: inline-block; }
+
+/* ── Floating Translucent Liquid Glass Inspector Panel ── */
+#inspector {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  bottom: 12px;
+  width: 332px;
+  border-radius: 18px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-specular);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 30;
+  transform: translateX(0);
+  opacity: 1;
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.24s ease;
+}
+body.panel-collapsed #inspector {
+  transform: translateX(calc(-100% - 24px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Titlebar row inside floating glass panel (traffic lights sit on left) */
+.panel-titlebar {
+  height: max(36px, calc(var(--mygo-titlebar-controls-bottom, 36px) - 12px + 12px));
+  padding: 0 10px 0 calc(max(var(--mygo-titlebar-inset-left, 80px) - 12px, 0px) + 8px);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+  --app-region: drag;
+  -webkit-app-region: drag;
+}
+
+.chrome-btn {
+  --app-region: no-drag;
+  -webkit-app-region: no-drag;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+.chrome-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* Compact Brand & Connection Pill Header */
+.brand-header {
+  padding: 0 14px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  --app-region: drag;
+  -webkit-app-region: drag;
+}
+.brand-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.chrome-btn.lang-btn {
+  width: auto;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+.app-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 7.5px;
+  overflow: hidden;
+  box-shadow: 0 3px 10px rgba(0, 122, 255, 0.34), 0 0 0 0.5px rgba(255, 255, 255, 0.28);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.app-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.app-title {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.transport-pill {
+  --app-region: no-drag;
+  -webkit-app-region: no-drag;
+  height: 24px;
+  padding: 0 9px 0 7px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.transport-pill.online {
+  background: var(--green-soft);
+  border-color: rgba(48, 209, 88, 0.28);
+  color: var(--text);
+}
+.transport-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.transport-pill.online .transport-dot {
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(48, 209, 88, 0.72);
+}
+
+/* Panel Body */
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  padding: 2px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  font-weight: 550;
+  transition: background 0.16s, border-color 0.16s, color 0.16s, transform 0.1s, opacity 0.16s, box-shadow 0.16s;
+}
+button:active:not(:disabled) { transform: scale(0.97); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Device Selector Row ── */
+.device-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.select-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--divider);
+  display: flex;
+  align-items: center;
+  transition: border-color 0.16s, background 0.16s;
+}
+.select-wrap:hover { background: var(--surface-hover); }
+.select-wrap:focus-within {
+  border-color: var(--accent);
+  background: var(--input-focus-bg);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.select-lead-ic {
+  position: absolute;
+  left: 10px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.select-chevron {
+  position: absolute;
+  right: 9px;
+  color: var(--muted);
+  pointer-events: none;
+}
+#device-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 100%;
+  padding: 0 28px 0 31px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.icon-square-btn {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--divider);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-square-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.icon-square-btn.spinning svg {
+  animation: spin 0.72s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Spotlight-Style Search Bar ── */
+.search-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.search-field {
+  height: 36px;
+  border-radius: 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--divider);
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 9px;
+  gap: 6px;
+  transition: border-color 0.16s, background 0.16s, box-shadow 0.16s;
+}
+.search-field:focus-within {
+  border-color: var(--accent);
+  background: var(--input-focus-bg);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+#btn-search {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+#btn-search:hover { color: var(--accent); }
+#search-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+#search-input::placeholder { color: var(--placeholder); }
+#btn-search-clear {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface-hover);
+  color: var(--muted);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+#btn-search-clear.visible { display: inline-flex; }
+#btn-search-clear:hover { color: var(--text); }
+.kbd-hint {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  line-height: 1.2;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.search-field:focus-within .kbd-hint,
+.search-field.has-value .kbd-hint {
+  display: none;
+}
+
+#search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  border-radius: 12px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-sm), inset 0 1px 0 var(--glass-specular);
+  overflow: hidden;
+  max-height: 230px;
+  overflow-y: auto;
+  z-index: 60;
+  display: none;
+}
+#search-results.open {
+  display: block;
+  animation: popIn 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.sr-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 11px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--divider);
+  transition: background 0.12s;
+}
+.sr-item:last-child { border-bottom: none; }
+.sr-item:hover { background: var(--surface-hover); }
+.sr-item.sr-info { cursor: default; color: var(--muted); font-size: 12px; align-items: center; }
+.sr-item.sr-info:hover { background: transparent; }
+.sr-pin { color: var(--accent); margin-top: 2px; }
+.sr-text { flex: 1; min-width: 0; }
+.sr-name { font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sr-sub { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Telemetry & Primary Action Card ── */
+.telemetry-card {
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--divider);
+  box-shadow: inset 0 1px 0 var(--glass-specular);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.status-indicator {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.status-indicator.active .status-dot {
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(48, 209, 88, 0.7);
+}
+.status-indicator.active::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px solid var(--green);
+  opacity: 0;
+  animation: status-ring 2s ease-out infinite;
+}
+@keyframes status-ring {
+  0% { transform: scale(0.6); opacity: 0.75; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+.status-indicator.busy .status-dot {
+  width: 10px;
+  height: 10px;
+  background: transparent;
+  border: 2px solid rgba(255, 159, 10, 0.25);
+  border-top-color: var(--amber);
+  animation: spin 0.75s linear infinite;
+}
+.status-indicator.err .status-dot {
+  background: var(--red);
+  box-shadow: 0 0 8px rgba(255, 69, 58, 0.55);
+}
+
+#status-title {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.method-badge {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: none;
+  flex-shrink: 0;
+}
+.method-badge.show { display: inline-block; }
+
+/* Coordinate telemetry cells */
+.coord-telemetry {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.coord-pair {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.coord-cell {
+  padding: 6px 8px;
+  border-radius: 9px;
+  background: var(--input-bg);
+  border: 1px solid var(--divider);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.coord-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.coord-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#btn-copy-coord {
+  width: 34px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: var(--input-bg);
+  border: 1px solid var(--divider);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+#btn-copy-coord:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+#btn-copy-coord.copied {
+  color: var(--green);
+  border-color: rgba(48, 209, 88, 0.35);
+  background: var(--green-soft);
+}
+
+.status-msg {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.status-err {
+  font-size: 11.5px;
+  color: var(--red);
+  background: var(--red-soft);
+  border: 1px solid var(--red-border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  line-height: 1.4;
+  word-break: break-word;
+  display: none;
+}
+
+/* Primary & Secondary CTAs */
+.action-row {
+  display: flex;
+  gap: 7px;
+  margin-top: 1px;
+}
+.btn-primary {
+  flex: 1.35;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--accent-top) 0%, var(--accent-bot) 100%);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 13px;
+  box-shadow: 0 4px 14px rgba(0, 122, 255, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 18px rgba(0, 122, 255, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.36);
+}
+.btn-secondary {
+  flex: 1;
+  height: 36px;
+  padding: 0 11px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--red-soft);
+  border-color: var(--red-border);
+  color: var(--red);
+}
+.btn-secondary.is-active {
+  background: var(--red-soft);
+  border-color: var(--red-border);
+  color: var(--red);
+}
+.btn-secondary.is-active:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* ── Quick Cities & Favorites Section ── */
+.places-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.places-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.seg-control {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 2.5px;
+  border-radius: 9px;
+  background: var(--seg-bg);
+  border: 1px solid var(--divider);
+}
+.seg-btn {
+  height: 26px;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.seg-btn:hover { color: var(--text); }
+.seg-btn.active {
+  background: var(--seg-active);
+  color: var(--text);
+  box-shadow: var(--seg-active-shadow);
+}
+.pill-count {
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.seg-btn.active .pill-count {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.btn-add-fav {
+  height: 31px;
+  padding: 0 9px;
+  border-radius: 9px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.btn-add-fav:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+/* Inline Add Favorite Form */
+#fav-add-row {
+  display: none;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+  animation: popIn 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#fav-add-row.open { display: flex; }
+#fav-name-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 9px;
+  background: var(--input-focus-bg);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  outline: none;
+  box-shadow: 0 0 0 2.5px var(--accent-soft);
+  user-select: text;
+  -webkit-user-select: text;
+}
+#fav-name-input::placeholder { color: var(--placeholder); }
+.btn-mini-primary {
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.btn-mini-primary:hover { filter: brightness(1.08); }
+.btn-mini-ghost {
+  height: 32px;
+  padding: 0 9px;
+  border-radius: 9px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 550;
+  flex-shrink: 0;
+}
+.btn-mini-ghost:hover { background: var(--surface-hover); color: var(--text); }
+
+/* Tab panes */
+.tab-pane {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.tab-pane.active { display: block; }
+
+/* Quick Cities Grid */
+.cities-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.city-card {
+  padding: 9px 10px;
+  border-radius: 11px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--text);
+}
+.city-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent-border);
+}
+.city-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.city-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.city-coord {
+  font-size: 10px;
+  color: var(--muted);
+}
+.city-region {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--input-bg);
+  flex-shrink: 0;
+}
+.city-card:hover .city-region {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Favorites List */
+.fav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fav-empty {
+  padding: 24px 14px;
+  text-align: center;
+  border-radius: 12px;
+  border: 1px dashed var(--divider);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.fav-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 9px;
+  border-radius: 11px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s;
+}
+.fav-row:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent-border);
+}
+.fav-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.fav-meta {
+  flex: 1;
+  min-width: 0;
+}
+.fav-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fav-coord {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+.fav-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transform: translateX(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+.fav-row:hover .fav-actions,
+.fav-row:focus-within .fav-actions {
+  opacity: 1;
+  transform: translateX(0);
+}
+.fav-tp-btn {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.fav-tp-btn:hover { filter: brightness(1.1); }
+.fav-del-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--input-bg);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.fav-del-btn:hover {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+/* ── Unobtrusive Docked Console / Log Drawer ── */
+.log-drawer {
+  border-top: 1px solid var(--divider);
+  background: rgba(128, 128, 138, 0.03);
+  flex-shrink: 0;
+}
+.log-toggle {
+  width: 100%;
+  height: 36px;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.log-toggle:hover { color: var(--text); background: var(--surface); }
+.log-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.log-chevron {
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.log-drawer.open .log-chevron {
+  transform: rotate(180deg);
+}
+.log-body {
+  display: none;
+  padding: 0 12px 12px;
+}
+.log-drawer.open .log-body {
+  display: block;
+}
+#log-pre {
+  max-height: 130px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--log-well);
+  border: 1px solid var(--divider);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* ── Top-Right Floating Segmented Layer Bar ── */
+#layer-bar {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3.5px;
+  border-radius: 12px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-sm), inset 0 1px 0 var(--glass-specular);
+}
+.layer-btn {
+  height: 27px;
+  padding: 0 10px;
+  border-radius: 8.5px;
+  font-size: 12px;
+  font-weight: 550;
+  background: transparent;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.layer-btn:hover:not(.active) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.layer-btn.active {
+  background: linear-gradient(180deg, var(--accent-top) 0%, var(--accent-bot) 100%);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+/* ── Bottom-Right Floating Glass Map Controls (+, -, Recenter) ── */
+#map-controls {
+  position: fixed;
+  bottom: 36px;
+  right: 14px;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.glass-ctrl-group {
+  border-radius: 12px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-sm), inset 0 1px 0 var(--glass-specular);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.map-ctrl-btn {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.map-ctrl-btn:hover { background: var(--surface-hover); }
+.map-ctrl-btn + .map-ctrl-btn {
+  border-top: 1px solid var(--divider);
+}
+#btn-recenter.has-locked {
+  color: var(--accent);
+}
+
+/* ── Bottom Floating Coordinate HUD Pill ── */
+#map-pill {
+  --hud-shift: 0px;
+  position: fixed;
+  bottom: 16px;
+  left: calc(50% + var(--hud-shift));
+  transform: translateX(-50%);
+  z-index: 24;
+  height: 32px;
+  padding: 0 13px;
+  border-radius: 999px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-sm), inset 0 1px 0 var(--glass-specular);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  cursor: pointer;
+  transition: left 0.34s cubic-bezier(0.22, 1, 0.36, 1), transform 0.16s, background 0.16s, border-color 0.16s;
+}
+#map-pill:hover {
+  border-color: var(--accent-border);
+  transform: translateX(-50%) translateY(-1px);
+}
+#map-pill:active {
+  transform: translateX(-50%) scale(0.98);
+}
+.hud-datum {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+#hud-coords {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.hud-sep {
+  width: 1px;
+  height: 13px;
+  background: var(--divider);
+}
+#hud-layer {
+  font-size: 11.5px;
+  font-weight: 550;
+  color: var(--muted);
+}
+
+/* ── Floating Toast ── */
+#toast {
+  position: fixed;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px) scale(0.96);
+  z-index: 100;
+  padding: 8px 15px;
+  border-radius: 999px;
+  background: var(--toast-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--toast-text);
+  font-size: 12.5px;
+  font-weight: 550;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+/* Responsive nicety on narrow windows */
+@media (max-width: 1020px) {
+  body:not(.panel-collapsed) #map-pill { --hud-shift: 146px; }
+}
+@media (max-width: 900px) {
+  #inspector { width: 304px; }
+  .layer-btn { padding: 0 8px; font-size: 11.5px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Full-bleed edge-to-edge map canvas -->
+<main id="map-wrap">
+  <div id="map"></div>
+</main>
+
+<!-- Invisible top-edge drag handle -->
+<div id="window-drag-strip"></div>
+
+<!-- Precision Center Reticle Crosshair -->
+<svg id="crosshair" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <circle cx="22" cy="22" r="9.5" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="2.6"/>
+  <circle cx="22" cy="22" r="9.5" fill="none" stroke="#007aff" stroke-width="1.6"/>
+  <line x1="22" y1="3" x2="22" y2="10.5" stroke="#007aff" stroke-width="1.9" stroke-linecap="round"/>
+  <line x1="22" y1="33.5" x2="22" y2="41" stroke="#007aff" stroke-width="1.9" stroke-linecap="round"/>
+  <line x1="3" y1="22" x2="10.5" y2="22" stroke="#007aff" stroke-width="1.9" stroke-linecap="round"/>
+  <line x1="33.5" y1="22" x2="41" y2="22" stroke="#007aff" stroke-width="1.9" stroke-linecap="round"/>
+  <circle cx="22" cy="22" r="2.2" fill="#007aff" stroke="#ffffff" stroke-width="1.2"/>
+</svg>
+
+<!-- Collapsed Top-Left Bar (when inspector is hidden) -->
+<div id="collapsed-bar">
+  <span class="collapsed-sep" aria-hidden="true"></span>
+  <button id="btn-expand" title="展开控制面板 (⌘\)">
+    <svg class="ic" width="15" height="15" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><line x1="9" y1="4" x2="9" y2="20"/></svg>
+    <span id="txt-expand">控制面板</span>
+    <span id="collapsed-dot" aria-hidden="true"></span>
+  </button>
+</div>
+
+<!-- Floating Translucent Liquid Glass Inspector Panel -->
+<aside id="inspector" aria-label="定位控制面板">
+  <!-- macOS Titlebar Row (Traffic lights sit cleanly on left) -->
+  <div class="panel-titlebar">
+    <button id="btn-lang" class="chrome-btn lang-btn" title="Switch Language / 切换语言">EN</button>
+    <button id="btn-theme" class="chrome-btn" title="切换浅色 / 深色外观">
+      <svg id="ic-theme-sun" class="ic" width="15" height="15" viewBox="0 0 24 24" style="display:none;"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.2M12 19.8V22M4.93 4.93l1.56 1.56M17.51 17.51l1.56 1.56M2 12h2.2M19.8 12H22M4.93 19.07l1.56-1.56M17.51 6.49l1.56-1.56"/></svg>
+      <svg id="ic-theme-moon" class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>
+    </button>
+    <button id="btn-collapse" class="chrome-btn" title="收起面板以查看全屏地图 (⌘\)">
+      <svg class="ic" width="15" height="15" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><line x1="9" y1="4" x2="9" y2="20"/></svg>
+    </button>
+  </div>
+
+  <!-- Brand & Live Connection Pill -->
+  <header class="brand-header">
+    <div class="brand-left">
+      <div class="app-mark" aria-hidden="true">
+        <img src="/app-icon.png" alt="iOS Location">
+      </div>
+      <span class="app-title">iOS Location</span>
+    </div>
+    <div id="transport-pill" class="transport-pill" title="设备连接方式">
+      <span class="transport-dot"></span>
+      <svg id="ic-tr-wifi" class="ic" width="12" height="12" viewBox="0 0 24 24" style="display:none;"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="19.5" r="0.8" fill="currentColor"/></svg>
+      <svg id="ic-tr-usb" class="ic" width="12" height="12" viewBox="0 0 24 24" style="display:none;"><path d="M12 2v14"/><path d="M9 5l3-3 3 3"/><path d="M12 12l5-3v-2"/><path d="M12 14l-5-3V9"/><circle cx="12" cy="19" r="2.5"/></svg>
+      <svg id="ic-tr-off" class="ic" width="12" height="12" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><line x1="6.3" y1="6.3" x2="17.7" y2="17.7"/></svg>
+      <span id="transport-label">离线</span>
+    </div>
+  </header>
+
+  <div class="panel-body">
+    <!-- Device Selector Row -->
+    <div class="device-row">
+      <div class="select-wrap" title="选择目标 iOS 设备">
+        <svg class="ic select-lead-ic" width="14" height="14" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="10.5" y1="18" x2="13.5" y2="18"/></svg>
+        <select id="device-select" aria-label="目标设备"><option value="">正在扫描设备...</option></select>
+        <svg class="ic select-chevron" width="13" height="13" viewBox="0 0 24 24"><path d="M8 9l4-4 4 4"/><path d="M8 15l4 4 4-4"/></svg>
+      </div>
+      <button id="btn-pair" class="icon-square-btn" title="iOS 27+ 无线配对（免 usbmuxd 掉线）" aria-label="无线配对">
+        <svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="19.5" r="0.9" fill="currentColor"/></svg>
+      </button>
+      <button id="btn-refresh" class="icon-square-btn" title="刷新设备列表" aria-label="刷新设备列表">
+        <svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+      </button>
+    </div>
+
+    <!-- Spotlight-Style Search Bar -->
+    <div class="search-wrap">
+      <div id="search-field" class="search-field">
+        <button id="btn-search" title="搜索" aria-label="搜索">
+          <svg class="ic" width="14" height="14" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.2" y2="16.2"/></svg>
+        </button>
+        <input id="search-input" type="text" placeholder="搜索地点或粘贴经纬度" autocomplete="off" spellcheck="false">
+        <button id="btn-search-clear" title="清空" aria-label="清空搜索">
+          <svg class="ic" width="11" height="11" viewBox="0 0 24 24" style="stroke-width:2.2;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <kbd class="kbd-hint">⌘K</kbd>
+      </div>
+      <div id="search-results" role="listbox" aria-label="搜索结果"></div>
+    </div>
+
+    <!-- Telemetry & Action Card -->
+    <section class="telemetry-card" aria-label="定位状态与操作">
+      <div class="status-row">
+        <div class="status-left">
+          <span id="status-indicator" class="status-indicator"><span class="status-dot"></span></span>
+          <span id="status-title">未模拟定位</span>
+        </div>
+        <span id="status-method" class="method-badge"></span>
+      </div>
+
+      <div class="coord-telemetry">
+        <div class="coord-pair">
+          <div class="coord-cell">
+            <span class="coord-label">LAT</span>
+            <span id="coord-lat" class="coord-val mono">34.05369</span>
+          </div>
+          <div class="coord-cell">
+            <span class="coord-label">LNG</span>
+            <span id="coord-lng" class="coord-val mono">-118.24277</span>
+          </div>
+        </div>
+        <button id="btn-copy-coord" title="复制 WGS-84 经纬度" aria-label="复制经纬度">
+          <svg id="ic-copy" class="ic" width="14" height="14" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <svg id="ic-copied" class="ic" width="14" height="14" viewBox="0 0 24 24" style="display:none;stroke-width:2.2;"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      </div>
+
+      <div id="status-msg" class="status-msg">拖动或点击地图选点，然后点击「锁定定位」</div>
+      <div id="status-err" class="status-err"></div>
+
+      <div class="action-row">
+        <button id="btn-lock" class="btn-primary">
+          <svg class="ic" width="14" height="14" viewBox="0 0 24 24" style="stroke-width:2;"><circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/></svg>
+          <span id="txt-lock">锁定定位</span>
+        </button>
+        <button id="btn-clear" class="btn-secondary">
+          <svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
+          <span id="txt-clear">恢复真实</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Quick Cities & Favorites -->
+    <section class="places-section" aria-label="快捷城市与收藏">
+      <div class="places-header">
+        <div class="seg-control" role="tablist">
+          <button id="tab-cities" class="seg-btn active" data-tab="cities" role="tab" aria-selected="true">快捷城市</button>
+          <button id="tab-favorites" class="seg-btn" data-tab="favorites" role="tab" aria-selected="false">
+            <span id="txt-tab-fav">我的收藏</span>
+            <span id="fav-count" class="pill-count">0</span>
+          </button>
+        </div>
+        <button id="btn-add-fav" class="btn-add-fav" title="收藏当前准星位置">
+          <svg class="ic" width="13" height="13" viewBox="0 0 24 24" style="stroke-width:2.1;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span id="txt-add-fav">收藏</span>
+        </button>
+      </div>
+
+      <div id="fav-add-row">
+        <input id="fav-name-input" type="text" maxlength="40" placeholder="输入收藏名称（如：洛杉矶办公室）" autocomplete="off">
+        <button id="btn-fav-save" class="btn-mini-primary">保存</button>
+        <button id="btn-fav-cancel" class="btn-mini-ghost">取消</button>
+      </div>
+
+      <div id="pane-cities" class="tab-pane active" role="tabpanel">
+        <div id="presets" class="cities-grid"></div>
+      </div>
+
+      <div id="pane-favorites" class="tab-pane" role="tabpanel">
+        <div id="fav-list" class="fav-list"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Collapsible Footer Console Drawer -->
+  <footer id="log-drawer" class="log-drawer">
+    <button id="btn-log-toggle" class="log-toggle" aria-expanded="false">
+      <span class="log-toggle-left">
+        <svg class="ic" width="13" height="13" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        <span id="txt-logs">运行日志</span>
+        <span id="log-count" class="pill-count">0</span>
+      </span>
+      <svg class="ic log-chevron" width="13" height="13" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+    </button>
+    <div class="log-body">
+      <pre id="log-pre" class="mono">等待操作...</pre>
+    </div>
+  </footer>
+</aside>
+
+<!-- Top-Right Floating Segmented Layer Bar -->
+<nav id="layer-bar" aria-label="地图图层切换">
+  <button class="layer-btn active" data-layer="gmap">谷歌地图</button>
+  <button class="layer-btn" data-layer="gsat">谷歌卫星</button>
+  <button class="layer-btn" data-layer="osm">Esri 街道</button>
+  <button class="layer-btn" data-layer="amap">高德地图</button>
+  <button class="layer-btn" data-layer="sat">高德卫星</button>
+</nav>
+
+<!-- Bottom-Right Custom Floating Glass Map Controls -->
+<div id="map-controls" aria-label="地图缩放与定位控制">
+  <div class="glass-ctrl-group">
+    <button id="btn-recenter" class="map-ctrl-btn" title="定位到已锁定坐标" aria-label="定位到已锁定坐标">
+      <svg class="ic" width="16" height="16" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+    </button>
+  </div>
+  <div class="glass-ctrl-group">
+    <button id="btn-zoom-in" class="map-ctrl-btn" title="放大" aria-label="放大">
+      <svg class="ic" width="15" height="15" viewBox="0 0 24 24" style="stroke-width:2;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    <button id="btn-zoom-out" class="map-ctrl-btn" title="缩小" aria-label="缩小">
+      <svg class="ic" width="15" height="15" viewBox="0 0 24 24" style="stroke-width:2;"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Bottom Floating Coordinate HUD -->
+<button id="map-pill" title="点击复制 WGS-84 经纬度">
+  <span class="hud-datum">WGS-84</span>
+  <span id="hud-coords" class="mono">34.05369, -118.24277</span>
+  <span class="hud-sep" aria-hidden="true"></span>
+  <span id="hud-layer">谷歌地图</span>
+</button>
+
+<!-- Wi-Fi Remote Pairing Modal (iOS 27+) -->
+<div id="pair-modal" style="display:none;position:fixed;inset:0;z-index:120;background:rgba(0,0,0,0.36);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:24px;">
+  <div style="width:100%;max-width:380px;border-radius:20px;background:var(--glass-bg-strong);backdrop-filter:blur(32px) saturate(190%);-webkit-backdrop-filter:blur(32px) saturate(190%);border:1px solid var(--glass-border);box-shadow:var(--glass-shadow),inset 0 1px 0 var(--glass-specular);padding:20px;display:flex;flex-direction:column;gap:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="app-mark" style="width:30px;height:30px;">
+          <img src="/app-icon.png" alt="iOS Location">
+        </div>
+        <div>
+          <div id="pair-title" style="font-size:15px;font-weight:650;color:var(--text);">iOS 27+ 无线直连配对</div>
+          <div id="pair-subtitle" style="font-size:11px;color:var(--muted);">独立 RemotePairing 隧道 · 摆脱 usbmuxd 掉线</div>
+        </div>
+      </div>
+      <button id="btn-pair-close" class="chrome-btn" title="关闭">
+        <svg class="ic" width="14" height="14" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div style="padding:12px;border-radius:12px;background:var(--surface);border:1px solid var(--divider);font-size:12px;color:var(--text-secondary);line-height:1.65;">
+      <div id="pair-step-1">1. 确保 iPhone 与 Mac 连在同一 Wi-Fi</div>
+      <div id="pair-step-2">2. 打开 iPhone 设置 → 开发者 → 已配对的 Mac</div>
+      <div><span id="pair-step-3a">3. 在「其他设备」中点击 </span><strong id="pair-host-name" style="color:var(--accent);">MacBook-Location</strong><span id="pair-step-3b"> 并点「配对」</span></div>
+    </div>
+
+    <div id="pair-pin-box" style="display:none;padding:16px 12px;border-radius:14px;background:var(--accent-soft);border:1px solid var(--accent-border);text-align:center;">
+      <div id="pair-pin-label" style="font-size:11px;font-weight:600;color:var(--accent);letter-spacing:0.06em;margin-bottom:6px;">请在 iPhone 上输入配对码</div>
+      <div id="pair-pin-val" class="mono" style="font-size:32px;font-weight:750;letter-spacing:0.18em;color:var(--text);">000000</div>
+    </div>
+
+    <div id="pair-status-msg" style="font-size:12px;color:var(--muted);text-align:center;">准备启动局域网广播...</div>
+
+    <div style="display:flex;gap:8px;">
+      <button id="btn-pair-restart" class="btn-secondary" style="flex:1;height:36px;">重新广播</button>
+      <button id="btn-pair-cancel" class="btn-secondary" style="flex:1;height:36px;">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+<script>
+(function () {
+  'use strict';
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function makeSvg(size, children, strokeWidth) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'ic');
+    svg.setAttribute('width', String(size));
+    svg.setAttribute('height', String(size));
+    svg.setAttribute('viewBox', '0 0 24 24');
+    if (strokeWidth) svg.style.strokeWidth = String(strokeWidth);
+    children.forEach(([tag, attrs]) => {
+      const el = document.createElementNS(SVG_NS, tag);
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, String(v)));
+      svg.appendChild(el);
+    });
+    return svg;
+  }
+
+  /* ── Safe MyGo IPC wrapper ── */
+  function callGo(method, ...args) {
+    if (!window.mygo || typeof window.mygo.call !== 'function') {
+      return Promise.reject(new Error('MyGo bridge unavailable'));
+    }
+    return window.mygo.call(method, ...args);
+  }
+
+  /* ── GCJ-02 <-> WGS-84 offset conversion (for AutoNavi & Google China tiles) ── */
+  const GCJ = (() => {
+    const PI = Math.PI, a = 6378245.0, ee = 0.00669342162296594323;
+    const outOfChina = (lat, lng) => lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271;
+    function tLat(x, y) {
+      let r = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+      r += (20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2 / 3;
+      r += (20 * Math.sin(y * PI) + 40 * Math.sin(y / 3 * PI)) * 2 / 3;
+      r += (160 * Math.sin(y / 12 * PI) + 320 * Math.sin(y * PI / 30)) * 2 / 3;
+      return r;
+    }
+    function tLng(x, y) {
+      let r = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+      r += (20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2 / 3;
+      r += (20 * Math.sin(x * PI) + 40 * Math.sin(x / 3 * PI)) * 2 / 3;
+      r += (150 * Math.sin(x / 12 * PI) + 300 * Math.sin(x / 30 * PI)) * 2 / 3;
+      return r;
+    }
+    function w2g(lat, lng) {
+      if (outOfChina(lat, lng)) return [lat, lng];
+      let dLat = tLat(lng - 105, lat - 35), dLng = tLng(lng - 105, lat - 35);
+      const rLat = lat / 180 * PI;
+      let m = Math.sin(rLat); m = 1 - ee * m * m;
+      const sm = Math.sqrt(m);
+      dLat = dLat * 180 / ((a * (1 - ee)) / (m * sm) * PI);
+      dLng = dLng * 180 / (a / sm * Math.cos(rLat) * PI);
+      return [lat + dLat, lng + dLng];
+    }
+    function g2w(lat, lng) {
+      if (outOfChina(lat, lng)) return [lat, lng];
+      const g = w2g(lat, lng);
+      return [lat * 2 - g[0], lng * 2 - g[1]];
+    }
+    return { w2g, g2w };
+  })();
+
+  /* ── Bilingual i18n Catalog (zh-Hans / en), synced with MyGo App.Locale() ── */
+  const I18N = {
+    'zh-Hans': {
+      langBtn: 'EN',
+      langTitle: 'Switch to English',
+      expandLabel: '控制面板',
+      expandTitle: '展开控制面板 (⌘\\)',
+      collapseTitle: '收起面板以查看全屏地图 (⌘\\)',
+      themeToLight: '切换到浅色外观',
+      themeToDark: '切换到深色外观',
+      transportTitle: '设备连接方式',
+      offline: '离线',
+      selectDeviceTitle: '选择目标 iOS 设备',
+      scanningDevices: '正在扫描设备...',
+      noDevice: '未检测到已连接设备',
+      pairBtnTitle: 'iOS 27+ 无线配对（免 usbmuxd 掉线）',
+      refreshTitle: '刷新设备列表',
+      searchPlaceholder: '搜索地点或粘贴经纬度',
+      searchTitle: '搜索',
+      searchClearTitle: '清空',
+      searching: '搜索中...',
+      searchEmpty: '未找到匹配地点',
+      searchFailed: '搜索失败: ',
+      jumpedCoord: '已跳转到目标坐标',
+      statusIdle: '未模拟定位',
+      statusSyncing: '同步中...',
+      statusLocked: '已锁定模拟定位',
+      statusLockedPrefix: '已锁定 · ',
+      statusHint: '拖动或点击地图选点，然后点击「锁定定位」',
+      methodXcode: 'Xcode',
+      methodRemote: 'Wi-Fi 直连',
+      methodWifi: 'Wi-Fi',
+      copyTitle: '复制 WGS-84 经纬度',
+      copiedToast: '已复制坐标: ',
+      copyFailed: '复制失败',
+      btnLock: '锁定定位',
+      btnClear: '恢复真实',
+      tabCities: '快捷城市',
+      tabFav: '我的收藏',
+      btnAddFav: '收藏',
+      btnAddFavTitle: '收藏当前准星位置',
+      favPlaceholder: '输入收藏名称（如：洛杉矶办公室）',
+      btnSave: '保存',
+      btnCancel: '取消',
+      favEmpty: '暂无收藏地点，移动准星后点击右上角「+ 收藏」保存',
+      favTeleport: '传送',
+      favTeleportTitle: '立即跳转并锁定到此位置',
+      favDeleteTitle: '删除收藏',
+      favAdded: '已加入收藏',
+      favAddFailed: '收藏失败: ',
+      favDeleted: '已删除收藏',
+      favDeleteFailed: '删除失败: ',
+      logsTitle: '运行日志',
+      logsEmpty: '等待操作...',
+      recenterTitle: '定位到已锁定坐标',
+      recenterOk: '已回到当前锁定位置',
+      recenterNone: '当前尚未锁定模拟位置',
+      zoomInTitle: '放大',
+      zoomOutTitle: '缩小',
+      hudCopyTitle: '点击复制 WGS-84 经纬度',
+      toastNeedDevice: '请先连接 iPhone 并刷新设备列表',
+      toastLocked: '定位已生效',
+      toastSetFailed: '设置失败',
+      toastCleared: '已恢复真实定位',
+      toastClearFailed: '恢复失败',
+      toastScanFailed: '扫描设备失败: ',
+      toastPairedPrefix: '已成功无线配对 ',
+      pairTitle: 'iOS 27+ 无线直连配对',
+      pairSubtitle: '独立 RemotePairing 隧道 · 摆脱 usbmuxd 掉线',
+      pairCloseTitle: '关闭',
+      pairStep1: '1. 确保 iPhone 与 Mac 连在同一 Wi-Fi',
+      pairStep2: '2. 打开 iPhone 设置 → 开发者 → 已配对的 Mac',
+      pairStep3a: '3. 在「其他设备」中点击 ',
+      pairStep3b: ' 并点「配对」',
+      pairPinLabel: '请在 iPhone 上输入配对码',
+      pairStarting: '正在启动局域网广播...',
+      pairWaiting: '等待 iPhone 发起配对...',
+      pairStartFailed: '启动失败: ',
+      pairRestart: '重新广播',
+      layers: { gmap: '谷歌地图', gsat: '谷歌卫星', osm: 'Esri 街道', amap: '高德地图', sat: '高德卫星' },
+      cities: ['洛杉矶', '旧金山', '东京塔', '新加坡', '伦敦', '北京']
+    },
+    en: {
+      langBtn: '中',
+      langTitle: '切换到简体中文',
+      expandLabel: 'Controls',
+      expandTitle: 'Expand panel (⌘\\)',
+      collapseTitle: 'Collapse panel for full-screen map (⌘\\)',
+      themeToLight: 'Switch to Light Mode',
+      themeToDark: 'Switch to Dark Mode',
+      transportTitle: 'Device Connection',
+      offline: 'Offline',
+      selectDeviceTitle: 'Select Target iOS Device',
+      scanningDevices: 'Scanning devices...',
+      noDevice: 'No connected device found',
+      pairBtnTitle: 'iOS 27+ Wireless Pairing (bypass usbmuxd)',
+      refreshTitle: 'Refresh Devices',
+      searchPlaceholder: 'Search place or paste lat, lng',
+      searchTitle: 'Search',
+      searchClearTitle: 'Clear',
+      searching: 'Searching...',
+      searchEmpty: 'No matching places found',
+      searchFailed: 'Search failed: ',
+      jumpedCoord: 'Jumped to coordinates',
+      statusIdle: 'Not Simulating',
+      statusSyncing: 'Syncing...',
+      statusLocked: 'Location Locked',
+      statusLockedPrefix: 'Locked · ',
+      statusHint: 'Drag or click the map, then click "Lock Location"',
+      methodXcode: 'Xcode',
+      methodRemote: 'Wi-Fi Direct',
+      methodWifi: 'Wi-Fi',
+      copyTitle: 'Copy WGS-84 Coordinates',
+      copiedToast: 'Copied: ',
+      copyFailed: 'Copy failed',
+      btnLock: 'Lock Location',
+      btnClear: 'Reset GPS',
+      tabCities: 'Quick Cities',
+      tabFav: 'Favorites',
+      btnAddFav: 'Save',
+      btnAddFavTitle: 'Save current crosshair location',
+      favPlaceholder: 'Bookmark name (e.g. LA Office)',
+      btnSave: 'Save',
+      btnCancel: 'Cancel',
+      favEmpty: 'No saved places yet. Move the reticle and click "+ Save".',
+      favTeleport: 'Go',
+      favTeleportTitle: 'Jump and lock to this location immediately',
+      favDeleteTitle: 'Delete favorite',
+      favAdded: 'Saved to Favorites',
+      favAddFailed: 'Save failed: ',
+      favDeleted: 'Removed favorite',
+      favDeleteFailed: 'Delete failed: ',
+      logsTitle: 'Console',
+      logsEmpty: 'Waiting for action...',
+      recenterTitle: 'Recenter to locked pin',
+      recenterOk: 'Centered on locked location',
+      recenterNone: 'No simulated location locked yet',
+      zoomInTitle: 'Zoom in',
+      zoomOutTitle: 'Zoom out',
+      hudCopyTitle: 'Click to copy WGS-84 coordinates',
+      toastNeedDevice: 'Connect an iPhone and refresh devices first',
+      toastLocked: 'Location locked',
+      toastSetFailed: 'Failed to set location',
+      toastCleared: 'Real GPS restored',
+      toastClearFailed: 'Failed to restore GPS',
+      toastScanFailed: 'Device scan failed: ',
+      toastPairedPrefix: 'Paired wirelessly with ',
+      pairTitle: 'iOS 27+ Wireless Pairing',
+      pairSubtitle: 'Standalone RemotePairing tunnel · no usbmuxd drops',
+      pairCloseTitle: 'Close',
+      pairStep1: '1. Keep iPhone and Mac on the same Wi-Fi network',
+      pairStep2: '2. Open iPhone Settings → Developer → Paired Macs',
+      pairStep3a: '3. Under Other Devices tap ',
+      pairStep3b: ' and choose Pair',
+      pairPinLabel: 'Enter this code on your iPhone',
+      pairStarting: 'Starting LAN broadcast...',
+      pairWaiting: 'Waiting for iPhone to initiate pairing...',
+      pairStartFailed: 'Failed to start: ',
+      pairRestart: 'Re-advertise',
+      layers: { gmap: 'Google Maps', gsat: 'Google Sat', osm: 'Esri Streets', amap: 'AutoNavi', sat: 'AutoNavi Sat' },
+      cities: ['Los Angeles', 'San Francisco', 'Tokyo Tower', 'Singapore', 'London', 'Beijing']
+    }
+  };
+
+  let locale = String((window.mygo && window.mygo.locale) || navigator.language || '').toLowerCase().startsWith('zh') ? 'zh-Hans' : 'en';
+  function t(key) {
+    return (I18N[locale] && I18N[locale][key]) || I18N.en[key] || key;
+  }
+  function layerLabel(key) {
+    return (I18N[locale] && I18N[locale].layers[key]) || I18N.en.layers[key] || key;
+  }
+
+  const PRESETS = [
+    { idx: 0, region: 'US', lat: 34.0536923, lng: -118.2427676 },
+    { idx: 1, region: 'US', lat: 37.7749295, lng: -122.4194155 },
+    { idx: 2, region: 'JP', lat: 35.6585805, lng: 139.7454329 },
+    { idx: 3, region: 'SG', lat: 1.2833754,  lng: 103.8607264 },
+    { idx: 4, region: 'UK', lat: 51.5007292, lng: -0.1246254 },
+    { idx: 5, region: 'CN', lat: 39.90872,   lng: 116.39748 }
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  let currentLayer = 'gmap';
+  let wgs = { lat: 34.0536923, lng: -118.2427676 };
+  let lockedWgsCoord = null;
+  let lockedMarker = null;
+  let devices = [];
+  let devicesScanned = false;
+  let lastState = null;
+  let toastTimer = null;
+  let copyTimer = null;
+
+  function showToast(msg) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2300);
+  }
+
+  /* ── Theme Management (respects macOS prefers-color-scheme + manual toggle) ── */
+  const darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
+  function isDarkActive() {
+    const explicit = document.documentElement.dataset.theme;
+    if (explicit === 'dark') return true;
+    if (explicit === 'light') return false;
+    return darkMedia.matches;
+  }
+  function syncThemeIcon() {
+    const dark = isDarkActive();
+    $('ic-theme-sun').style.display = dark ? 'block' : 'none';
+    $('ic-theme-moon').style.display = dark ? 'none' : 'block';
+    $('btn-theme').title = dark ? t('themeToLight') : t('themeToDark');
+  }
+  $('btn-theme').addEventListener('click', () => {
+    const next = isDarkActive() ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('ios-loc-theme', next); } catch (_) {}
+    syncThemeIcon();
+  });
+  darkMedia.addEventListener('change', syncThemeIcon);
+  syncThemeIcon();
+
+  /* ── Collapsible Floating Panel ── */
+  function setPanelCollapsed(collapsed) {
+    document.body.classList.toggle('panel-collapsed', collapsed);
+  }
+  $('btn-collapse').addEventListener('click', () => setPanelCollapsed(true));
+  $('btn-expand').addEventListener('click', () => setPanelCollapsed(false));
+
+  /* ── Segmented Tabs (Quick Cities / Favorites) ── */
+  function switchTab(tabName) {
+    document.querySelectorAll('.seg-btn').forEach((btn) => {
+      const active = btn.dataset.tab === tabName;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', String(active));
+    });
+    $('pane-cities').classList.toggle('active', tabName === 'cities');
+    $('pane-favorites').classList.toggle('active', tabName === 'favorites');
+  }
+  document.querySelectorAll('.seg-btn').forEach((btn) => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  /* ── Collapsible Console Drawer ── */
+  $('btn-log-toggle').addEventListener('click', () => {
+    const drawer = $('log-drawer');
+    const isOpen = drawer.classList.toggle('open');
+    $('btn-log-toggle').setAttribute('aria-expanded', String(isOpen));
+    if (isOpen) {
+      const pre = $('log-pre');
+      pre.scrollTop = pre.scrollHeight;
+    }
+  });
+
+  /* ── Coordinate Helpers ── */
+  function isGCJLayer(name) {
+    return name === 'gmap' || name === 'gsat' || name === 'amap' || name === 'sat';
+  }
+  function wgsToDisp(lat, lng) {
+    return isGCJLayer(currentLayer) ? GCJ.w2g(lat, lng) : [lat, lng];
+  }
+  function dispToWgs(lat, lng) {
+    return isGCJLayer(currentLayer) ? GCJ.g2w(lat, lng) : [lat, lng];
+  }
+
+  /* ── Map Setup (Full-Bleed, Custom Glass Controls) ── */
+  const map = L.map('map', { zoomControl: false, attributionControl: true }).setView([wgs.lat, wgs.lng], 13);
+  if (map.attributionControl && typeof map.attributionControl.setPrefix === 'function') {
+    map.attributionControl.setPrefix(false);
+  }
+
+  function googleTileUrl(lyrs) {
+    const hl = locale === 'zh-Hans' ? 'zh-CN' : 'en';
+    return `https://mt{s}.google.com/vt/lyrs=${lyrs}&hl=${hl}&x={x}&y={y}&z={z}`;
+  }
+
+  const layers = {
+    gmap: L.tileLayer(googleTileUrl('m'), {
+      subdomains: ['0', '1', '2', '3'], maxZoom: 21, attribution: '© Google Maps'
+    }),
+    gsat: L.tileLayer(googleTileUrl('y'), {
+      subdomains: ['0', '1', '2', '3'], maxZoom: 21, attribution: '© Google Satellite'
+    }),
+    osm: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19, attribution: '© Esri World Street Map'
+    }),
+    amap: L.tileLayer('https://wprd0{s}.is.autonavi.com/appmaptile?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=7', {
+      subdomains: '1234', maxZoom: 19, attribution: '© AutoNavi'
+    }),
+    sat: L.layerGroup([
+      L.tileLayer('https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', { subdomains: '1234', maxZoom: 19 }),
+      L.tileLayer('https://wprd0{s}.is.autonavi.com/appmaptile?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=8', { subdomains: '1234', maxZoom: 19, attribution: '© AutoNavi' })
+    ])
+  };
+  layers[currentLayer].addTo(map);
+
+  function updateCoordUI() {
+    const latStr = wgs.lat.toFixed(5);
+    const lngStr = wgs.lng.toFixed(5);
+    $('coord-lat').textContent = latStr;
+    $('coord-lng').textContent = lngStr;
+    $('hud-coords').textContent = `${latStr}, ${lngStr}`;
+  }
+
+  map.on('movestart', () => $('crosshair').classList.add('moving'));
+  map.on('moveend', () => $('crosshair').classList.remove('moving'));
+  map.on('move', () => {
+    const c = map.getCenter();
+    const [lat, lng] = dispToWgs(c.lat, c.lng);
+    wgs = { lat, lng };
+    updateCoordUI();
+  });
+  map.on('click', (e) => {
+    map.panTo(e.latlng, { animate: true });
+  });
+
+  function jumpToWgs(lat, lng, zoom) {
+    const [dLat, dLng] = wgsToDisp(lat, lng);
+    map.setView([dLat, dLng], zoom || Math.max(map.getZoom(), 14), { animate: true });
+    wgs = { lat, lng };
+    updateCoordUI();
+  }
+
+  function setLockedPin(lat, lng) {
+    lockedWgsCoord = { lat, lng };
+    const [dLat, dLng] = wgsToDisp(lat, lng);
+    const icon = L.divIcon({
+      className: '',
+      html: '<div class="locked-beacon"><span class="locked-beacon-pulse"></span><span class="locked-beacon-core"></span></div>',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+    if (lockedMarker) {
+      lockedMarker.setLatLng([dLat, dLng]);
+    } else {
+      lockedMarker = L.marker([dLat, dLng], { icon, interactive: false }).addTo(map);
+    }
+    $('btn-recenter').classList.add('has-locked');
+  }
+
+  function clearLockedPin() {
+    lockedWgsCoord = null;
+    if (lockedMarker) {
+      map.removeLayer(lockedMarker);
+      lockedMarker = null;
+    }
+    $('btn-recenter').classList.remove('has-locked');
+  }
+
+  /* Custom Glass Map Controls */
+  $('btn-zoom-in').addEventListener('click', () => map.zoomIn());
+  $('btn-zoom-out').addEventListener('click', () => map.zoomOut());
+  $('btn-recenter').addEventListener('click', () => {
+    if (lockedWgsCoord) {
+      jumpToWgs(lockedWgsCoord.lat, lockedWgsCoord.lng, Math.max(map.getZoom(), 15));
+      showToast(t('recenterOk'));
+    } else {
+      showToast(t('recenterNone'));
+    }
+  });
+
+  /* Copy Coordinates (Telemetry Button + Bottom HUD Pill) */
+  async function copyCurrentCoords() {
+    const txt = `${wgs.lat.toFixed(6)}, ${wgs.lng.toFixed(6)}`;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(txt);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const btn = $('btn-copy-coord');
+      btn.classList.add('copied');
+      $('ic-copy').style.display = 'none';
+      $('ic-copied').style.display = 'block';
+      clearTimeout(copyTimer);
+      copyTimer = setTimeout(() => {
+        btn.classList.remove('copied');
+        $('ic-copy').style.display = 'block';
+        $('ic-copied').style.display = 'none';
+      }, 1500);
+      showToast(t('copiedToast') + txt);
+    } catch (_) {
+      showToast(t('copyFailed'));
+    }
+  }
+  $('btn-copy-coord').addEventListener('click', copyCurrentCoords);
+  $('map-pill').addEventListener('click', copyCurrentCoords);
+
+  /* Top-Right Layer Switcher */
+  document.querySelectorAll('.layer-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.dataset.layer;
+      if (next === currentLayer) return;
+      const savedWgs = { ...wgs };
+      const savedLocked = lockedWgsCoord ? { ...lockedWgsCoord } : null;
+      map.removeLayer(layers[currentLayer]);
+      currentLayer = next;
+      layers[currentLayer].addTo(map);
+      const [dLat, dLng] = wgsToDisp(savedWgs.lat, savedWgs.lng);
+      map.setView([dLat, dLng], map.getZoom(), { animate: false });
+      if (savedLocked) setLockedPin(savedLocked.lat, savedLocked.lng);
+      document.querySelectorAll('.layer-btn').forEach((b) => b.classList.toggle('active', b.dataset.layer === currentLayer));
+      $('hud-layer').textContent = layerLabel(currentLayer);
+    });
+  });
+
+  /* ── Render Quick Cities Grid ── */
+  function renderPresets() {
+    const presetsEl = $('presets');
+    presetsEl.replaceChildren();
+    const names = (I18N[locale] && I18N[locale].cities) || I18N.en.cities;
+    PRESETS.forEach((p) => {
+      const card = document.createElement('button');
+      card.className = 'city-card';
+
+      const meta = document.createElement('div');
+      meta.className = 'city-meta';
+
+      const nm = document.createElement('span');
+      nm.className = 'city-name';
+      nm.textContent = names[p.idx] || p.region;
+
+      const cd = document.createElement('span');
+      cd.className = 'city-coord mono';
+      cd.textContent = `${p.lat.toFixed(2)}, ${p.lng.toFixed(2)}`;
+
+      meta.appendChild(nm);
+      meta.appendChild(cd);
+
+      const reg = document.createElement('span');
+      reg.className = 'city-region';
+      reg.textContent = p.region;
+
+      card.appendChild(meta);
+      card.appendChild(reg);
+      card.addEventListener('click', () => jumpToWgs(p.lat, p.lng, 13));
+      presetsEl.appendChild(card);
+    });
+  }
+
+  /* ── Backend State Rendering ── */
+  function renderState(st) {
+    if (!st) return;
+    lastState = st;
+    const ind = $('status-indicator');
+    ind.className = 'status-indicator' + (st.busy ? ' busy' : st.active ? ' active' : st.error ? ' err' : '');
+
+    const methodEl = $('status-method');
+    if (st.active && st.method) {
+      methodEl.textContent = st.method === 'devicectl' ? t('methodXcode') : st.method === 'remotepairing' ? t('methodRemote') : t('methodWifi');
+      methodEl.classList.add('show');
+    } else {
+      methodEl.textContent = '';
+      methodEl.classList.remove('show');
+    }
+
+    if (st.busy) {
+      $('status-title').textContent = t('statusSyncing');
+    } else if (st.active) {
+      $('status-title').textContent = st.label ? `${t('statusLockedPrefix')}${st.label}` : t('statusLocked');
+      setLockedPin(st.latitude, st.longitude);
+    } else {
+      $('status-title').textContent = t('statusIdle');
+      clearLockedPin();
+    }
+
+    $('collapsed-dot').classList.toggle('active', !!st.active);
+    $('btn-clear').classList.toggle('is-active', !!st.active);
+    $('status-msg').textContent = st.message || t('statusHint');
+
+    const errEl = $('status-err');
+    if (st.error) {
+      errEl.textContent = st.error;
+      errEl.style.display = 'block';
+    } else {
+      errEl.textContent = '';
+      errEl.style.display = 'none';
+    }
+
+    $('btn-lock').disabled = !!st.busy;
+    $('btn-clear').disabled = !!st.busy;
+
+    if (Array.isArray(st.logs)) {
+      $('log-count').textContent = String(st.logs.length);
+      if (st.logs.length) {
+        const pre = $('log-pre');
+        pre.textContent = st.logs.join('\n');
+        pre.scrollTop = pre.scrollHeight;
+      } else {
+        $('log-pre').textContent = t('logsEmpty');
+      }
+    }
+  }
+
+  function updateTransportPill() {
+    const sel = $('device-select').value;
+    const dev = devices.find((d) => d.udid === sel);
+    const pill = $('transport-pill');
+    const icWifi = $('ic-tr-wifi');
+    const icUsb = $('ic-tr-usb');
+    const icOff = $('ic-tr-off');
+    const lbl = $('transport-label');
+
+    icWifi.style.display = 'none';
+    icUsb.style.display = 'none';
+    icOff.style.display = 'none';
+
+    if (!dev) {
+      pill.classList.remove('online');
+      icOff.style.display = 'block';
+      lbl.textContent = t('offline');
+      return;
+    }
+    pill.classList.add('online');
+    if (dev.transport === 'usb+wifi') {
+      icUsb.style.display = 'block';
+      lbl.textContent = 'USB + Wi-Fi';
+    } else if (dev.transport === 'wifi') {
+      icWifi.style.display = 'block';
+      lbl.textContent = 'Wi-Fi';
+    } else {
+      icUsb.style.display = 'block';
+      lbl.textContent = 'USB';
+    }
+  }
+
+  function renderDeviceOptions(prev) {
+    const sel = $('device-select');
+    sel.replaceChildren();
+    if (!devices.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = devicesScanned ? t('noDevice') : t('scanningDevices');
+      sel.appendChild(opt);
+    } else {
+      devices.forEach((d) => {
+        const opt = document.createElement('option');
+        opt.value = d.udid;
+        const tag = d.transport === 'wifi' ? 'Wi-Fi' : d.transport === 'usb+wifi' ? 'USB+Wi-Fi' : 'USB';
+        opt.textContent = `${d.name} (iOS ${d.osVersion || '?'} · ${tag})`;
+        sel.appendChild(opt);
+      });
+      if (prev && devices.some((d) => d.udid === prev)) sel.value = prev;
+    }
+    updateTransportPill();
+  }
+
+  async function refreshDevices() {
+    const sel = $('device-select');
+    const btn = $('btn-refresh');
+    const prev = sel.value;
+    btn.disabled = true;
+    btn.classList.add('spinning');
+    try {
+      const list = await callGo('Spoofer.ListDevices');
+      devices = Array.isArray(list) ? list : [];
+      devicesScanned = true;
+      renderDeviceOptions(prev);
+    } catch (e) {
+      devicesScanned = true;
+      renderDeviceOptions(prev);
+      showToast(t('toastScanFailed') + e);
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('spinning');
+    }
+  }
+
+  $('device-select').addEventListener('change', updateTransportPill);
+  $('btn-refresh').addEventListener('click', refreshDevices);
+
+  async function lockLocation(lat, lng, label) {
+    const udid = $('device-select').value;
+    if (!udid) {
+      showToast(t('toastNeedDevice'));
+      return;
+    }
+    const ch = $('crosshair');
+    ch.classList.add('locked-flash');
+    setTimeout(() => ch.classList.remove('locked-flash'), 260);
+
+    try {
+      const st = await callGo('Spoofer.SetLocation', {
+        udid,
+        latitude: lat,
+        longitude: lng,
+        label: label || `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      });
+      renderState(st);
+      showToast(t('toastLocked'));
+    } catch (_) {
+      const st = await callGo('Spoofer.GetState').catch(() => null);
+      if (st) renderState(st);
+      showToast(t('toastSetFailed'));
+    }
+  }
+
+  $('btn-lock').addEventListener('click', () => {
+    lockLocation(wgs.lat, wgs.lng, `${wgs.lat.toFixed(4)}, ${wgs.lng.toFixed(4)}`);
+  });
+
+  $('btn-clear').addEventListener('click', async () => {
+    const udid = $('device-select').value;
+    try {
+      const st = await callGo('Spoofer.ClearLocation', udid);
+      renderState(st);
+      showToast(t('toastCleared'));
+    } catch (_) {
+      const st = await callGo('Spoofer.GetState').catch(() => null);
+      if (st) renderState(st);
+      showToast(t('toastClearFailed'));
+    }
+  });
+
+  /* ── Spotlight Search ── */
+  const searchInput = $('search-input');
+  const searchField = $('search-field');
+  const searchClearBtn = $('btn-search-clear');
+  const searchBox = $('search-results');
+
+  function syncSearchFieldUI() {
+    const hasVal = searchInput.value.length > 0;
+    searchField.classList.toggle('has-value', hasVal);
+    searchClearBtn.classList.toggle('visible', hasVal);
+  }
+  function closeSearchResults() {
+    searchBox.classList.remove('open');
+  }
+
+  searchInput.addEventListener('input', syncSearchFieldUI);
+  searchClearBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    syncSearchFieldUI();
+    closeSearchResults();
+    searchInput.focus();
+  });
+
+  async function runSearch() {
+    const q = searchInput.value.trim();
+    if (!q) return;
+    searchBox.replaceChildren();
+    const loading = document.createElement('div');
+    loading.className = 'sr-item sr-info';
+    loading.textContent = t('searching');
+    searchBox.appendChild(loading);
+    searchBox.classList.add('open');
+
+    try {
+      const items = await callGo('Spoofer.SearchPlace', q);
+      searchBox.replaceChildren();
+      if (!items || !items.length) {
+        const empty = document.createElement('div');
+        empty.className = 'sr-item sr-info';
+        empty.textContent = t('searchEmpty');
+        searchBox.appendChild(empty);
+        return;
+      }
+      if (items.length === 1 && items[0].direct) {
+        jumpToWgs(items[0].latitude, items[0].longitude, 15);
+        closeSearchResults();
+        showToast(t('jumpedCoord'));
+        return;
+      }
+      items.forEach((it) => {
+        const row = document.createElement('div');
+        row.className = 'sr-item';
+        row.setAttribute('role', 'option');
+
+        const pin = makeSvg(14, [
+          ['path', { d: 'M12 21s-6-5.2-6-10.5a6 6 0 1 1 12 0C18 15.8 12 21 12 21z' }],
+          ['circle', { cx: 12, cy: 10.5, r: 2 }]
+        ]);
+        pin.classList.add('sr-pin');
+
+        const textWrap = document.createElement('div');
+        textWrap.className = 'sr-text';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'sr-name';
+        nameEl.textContent = it.name;
+
+        const subEl = document.createElement('div');
+        subEl.className = 'sr-sub';
+        subEl.textContent = it.sub || `${it.latitude.toFixed(5)}, ${it.longitude.toFixed(5)}`;
+
+        textWrap.appendChild(nameEl);
+        textWrap.appendChild(subEl);
+        row.appendChild(pin);
+        row.appendChild(textWrap);
+
+        row.addEventListener('click', () => {
+          jumpToWgs(it.latitude, it.longitude, 15);
+          closeSearchResults();
+        });
+        searchBox.appendChild(row);
+      });
+    } catch (e) {
+      searchBox.replaceChildren();
+      const err = document.createElement('div');
+      err.className = 'sr-item sr-info';
+      err.textContent = t('searchFailed') + e;
+      searchBox.appendChild(err);
+    }
+  }
+
+  $('btn-search').addEventListener('click', runSearch);
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') runSearch();
+    if (e.key === 'Escape') {
+      closeSearchResults();
+      searchInput.blur();
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (!searchBox.contains(e.target) && !searchField.contains(e.target)) {
+      closeSearchResults();
+    }
+  });
+
+  /* ── Favorites ── */
+  async function loadFavorites() {
+    const list = await callGo('Spoofer.ListFavorites').catch(() => []);
+    const items = Array.isArray(list) ? list : [];
+    $('fav-count').textContent = String(items.length);
+
+    const box = $('fav-list');
+    box.replaceChildren();
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'fav-empty';
+      const star = makeSvg(20, [
+        ['polygon', { points: '12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2' }]
+      ]);
+      const msg = document.createElement('div');
+      msg.textContent = t('favEmpty');
+      empty.appendChild(star);
+      empty.appendChild(msg);
+      box.appendChild(empty);
+      return;
+    }
+
+    items.forEach((f) => {
+      const row = document.createElement('div');
+      row.className = 'fav-row';
+
+      const badge = document.createElement('div');
+      badge.className = 'fav-badge';
+      badge.appendChild(makeSvg(13, [
+        ['path', { d: 'M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z' }]
+      ]));
+
+      const meta = document.createElement('div');
+      meta.className = 'fav-meta';
+
+      const nm = document.createElement('div');
+      nm.className = 'fav-name';
+      nm.textContent = f.name;
+
+      const cd = document.createElement('div');
+      cd.className = 'fav-coord mono';
+      cd.textContent = `${f.latitude.toFixed(5)}, ${f.longitude.toFixed(5)}`;
+
+      meta.appendChild(nm);
+      meta.appendChild(cd);
+
+      const actions = document.createElement('div');
+      actions.className = 'fav-actions';
+
+      const tpBtn = document.createElement('button');
+      tpBtn.className = 'fav-tp-btn';
+      tpBtn.title = t('favTeleportTitle');
+      tpBtn.appendChild(makeSvg(11, [
+        ['polygon', { points: '3 11 22 2 13 21 11 13 3 11' }]
+      ], 2));
+      const tpTxt = document.createElement('span');
+      tpTxt.textContent = t('favTeleport');
+      tpBtn.appendChild(tpTxt);
+      tpBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        jumpToWgs(f.latitude, f.longitude, 15);
+        lockLocation(f.latitude, f.longitude, f.name);
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'fav-del-btn';
+      delBtn.title = t('favDeleteTitle');
+      delBtn.setAttribute('aria-label', t('favDeleteTitle'));
+      delBtn.appendChild(makeSvg(12, [
+        ['polyline', { points: '3 6 5 6 21 6' }],
+        ['path', { d: 'M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6' }],
+        ['path', { d: 'M10 11v6' }],
+        ['path', { d: 'M14 11v6' }]
+      ]));
+      delBtn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        try {
+          await callGo('Spoofer.DeleteFavorite', f.id);
+          await loadFavorites();
+          showToast(t('favDeleted'));
+        } catch (e) {
+          showToast(t('favDeleteFailed') + e);
+        }
+      });
+
+      actions.appendChild(tpBtn);
+      actions.appendChild(delBtn);
+
+      row.appendChild(badge);
+      row.appendChild(meta);
+      row.appendChild(actions);
+      row.addEventListener('click', () => jumpToWgs(f.latitude, f.longitude, 15));
+      box.appendChild(row);
+    });
+  }
+
+  function closeFavForm() {
+    $('fav-add-row').classList.remove('open');
+    $('fav-name-input').value = '';
+  }
+
+  async function submitFavForm() {
+    const name = $('fav-name-input').value.trim() || `${wgs.lat.toFixed(4)}, ${wgs.lng.toFixed(4)}`;
+    try {
+      await callGo('Spoofer.AddFavorite', name, wgs.lat, wgs.lng);
+      closeFavForm();
+      switchTab('favorites');
+      await loadFavorites();
+      showToast(t('favAdded'));
+    } catch (e) {
+      showToast(t('favAddFailed') + e);
+    }
+  }
+
+  $('btn-add-fav').addEventListener('click', () => {
+    switchTab('favorites');
+    $('fav-add-row').classList.add('open');
+    $('fav-name-input').value = '';
+    $('fav-name-input').focus();
+  });
+  $('btn-fav-save').addEventListener('click', submitFavForm);
+  $('btn-fav-cancel').addEventListener('click', closeFavForm);
+  $('fav-name-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitFavForm();
+    if (e.key === 'Escape') closeFavForm();
+  });
+
+  /* ── iOS 27+ Wi-Fi Remote Pairing Modal ── */
+  const pairModal = $('pair-modal');
+
+  function renderPairing(ps) {
+    if (!ps) return;
+    if (ps.hostName) $('pair-host-name').textContent = ps.hostName;
+    if (ps.pin) {
+      $('pair-pin-val').textContent = ps.pin.slice(0, 3) + ' ' + ps.pin.slice(3);
+      $('pair-pin-box').style.display = 'block';
+    } else {
+      $('pair-pin-box').style.display = 'none';
+    }
+    $('pair-status-msg').textContent = ps.error || ps.message || t('pairWaiting');
+    $('pair-status-msg').style.color = ps.error ? 'var(--red)' : ps.status === 'paired' ? 'var(--green)' : 'var(--muted)';
+
+    if (ps.status === 'paired') {
+      showToast(`${t('toastPairedPrefix')}${ps.deviceName || 'iPhone'}`);
+      setTimeout(async () => {
+        pairModal.style.display = 'none';
+        await refreshDevices();
+      }, 900);
+    }
+  }
+
+  async function openPairingModal() {
+    pairModal.style.display = 'flex';
+    $('pair-pin-box').style.display = 'none';
+    $('pair-status-msg').style.color = 'var(--muted)';
+    $('pair-status-msg').textContent = t('pairStarting');
+    try {
+      const ps = await callGo('Spoofer.StartWifiPairing', 'MacBook-Location');
+      renderPairing(ps);
+    } catch (e) {
+      $('pair-status-msg').style.color = 'var(--red)';
+      $('pair-status-msg').textContent = t('pairStartFailed') + e;
+    }
+  }
+
+  async function closePairingModal() {
+    pairModal.style.display = 'none';
+    await callGo('Spoofer.StopWifiPairing').catch(() => {});
+  }
+
+  $('btn-pair').addEventListener('click', openPairingModal);
+  $('btn-pair-restart').addEventListener('click', openPairingModal);
+  $('btn-pair-close').addEventListener('click', closePairingModal);
+  $('btn-pair-cancel').addEventListener('click', closePairingModal);
+
+  /* ── Apply Locale across UI & Map Tiles ── */
+  function applyLocale(tag) {
+    const next = String(tag || '').toLowerCase().startsWith('zh') ? 'zh-Hans' : 'en';
+    const changed = next !== locale;
+    locale = next;
+    document.documentElement.lang = locale;
+
+    $('btn-lang').textContent = t('langBtn');
+    $('btn-lang').title = t('langTitle');
+    $('txt-expand').textContent = t('expandLabel');
+    $('btn-expand').title = t('expandTitle');
+    $('btn-collapse').title = t('collapseTitle');
+    syncThemeIcon();
+
+    $('transport-pill').title = t('transportTitle');
+    const selWrap = document.querySelector('.select-wrap');
+    if (selWrap) selWrap.title = t('selectDeviceTitle');
+    $('btn-pair').title = t('pairBtnTitle');
+    $('btn-pair').setAttribute('aria-label', t('pairBtnTitle'));
+    $('btn-refresh').title = t('refreshTitle');
+    $('btn-refresh').setAttribute('aria-label', t('refreshTitle'));
+
+    $('search-input').placeholder = t('searchPlaceholder');
+    $('btn-search').title = t('searchTitle');
+    $('btn-search-clear').title = t('searchClearTitle');
+    $('btn-copy-coord').title = t('copyTitle');
+    $('txt-lock').textContent = t('btnLock');
+    $('txt-clear').textContent = t('btnClear');
+
+    $('tab-cities').textContent = t('tabCities');
+    $('txt-tab-fav').textContent = t('tabFav');
+    $('txt-add-fav').textContent = t('btnAddFav');
+    $('btn-add-fav').title = t('btnAddFavTitle');
+    $('fav-name-input').placeholder = t('favPlaceholder');
+    $('btn-fav-save').textContent = t('btnSave');
+    $('btn-fav-cancel').textContent = t('btnCancel');
+    $('txt-logs').textContent = t('logsTitle');
+
+    $('btn-recenter').title = t('recenterTitle');
+    $('btn-zoom-in').title = t('zoomInTitle');
+    $('btn-zoom-out').title = t('zoomOutTitle');
+    $('map-pill').title = t('hudCopyTitle');
+
+    $('pair-title').textContent = t('pairTitle');
+    $('pair-subtitle').textContent = t('pairSubtitle');
+    $('btn-pair-close').title = t('pairCloseTitle');
+    $('pair-step-1').textContent = t('pairStep1');
+    $('pair-step-2').textContent = t('pairStep2');
+    $('pair-step-3a').textContent = t('pairStep3a');
+    $('pair-step-3b').textContent = t('pairStep3b');
+    $('pair-pin-label').textContent = t('pairPinLabel');
+    $('btn-pair-restart').textContent = t('pairRestart');
+    $('btn-pair-cancel').textContent = t('btnCancel');
+
+    document.querySelectorAll('.layer-btn').forEach((b) => {
+      b.textContent = layerLabel(b.dataset.layer);
+    });
+    $('hud-layer').textContent = layerLabel(currentLayer);
+
+    if (changed) {
+      layers.gmap.setUrl(googleTileUrl('m'));
+      layers.gsat.setUrl(googleTileUrl('y'));
+    }
+
+    renderPresets();
+    renderDeviceOptions($('device-select').value);
+    if (changed) loadFavorites();
+
+    if (lastState) {
+      renderState(lastState);
+    } else {
+      $('status-title').textContent = t('statusIdle');
+      $('status-msg').textContent = t('statusHint');
+      $('log-pre').textContent = t('logsEmpty');
+    }
+  }
+
+  $('btn-lang').addEventListener('click', () => {
+    const next = locale === 'zh-Hans' ? 'en' : 'zh-Hans';
+    applyLocale(next);
+    callGo('Spoofer.SetLocale', next).then((actual) => {
+      if (actual) applyLocale(actual);
+    }).catch(() => {});
+  });
+
+  /* ── Global Keyboard Shortcuts (⌘K search, ⌘\ toggle panel, Escape close) ── */
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      setPanelCollapsed(false);
+      searchInput.focus();
+      searchInput.select();
+    } else if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+      e.preventDefault();
+      setPanelCollapsed(!document.body.classList.contains('panel-collapsed'));
+    } else if (e.key === 'Escape') {
+      closeSearchResults();
+      closeFavForm();
+      if (pairModal.style.display === 'flex') closePairingModal();
+    }
+  });
+
+  /* ── Subscribe to Go state, pairing & locale events ── */
+  if (window.mygo && typeof window.mygo.on === 'function') {
+    window.mygo.on('spoofer:state', renderState);
+    window.mygo.on('spoofer:pairing', renderPairing);
+    window.mygo.on('spoofer:locale', applyLocale);
+  }
+
+  /* ── Boot ── */
+  applyLocale(locale);
+  updateCoordUI();
+  refreshDevices();
+  loadFavorites();
+  callGo('Spoofer.GetLocale').then((tag) => {
+    if (tag) applyLocale(tag);
+  }).catch(() => {});
+  callGo('Spoofer.GetState').then(renderState).catch(() => {});
+})();
+</script>
+</body>
+</html>
