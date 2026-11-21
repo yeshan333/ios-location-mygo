@@ -1,0 +1,28 @@
+[package]
+name = "ios-location-gpui"
+version = "0.2.0"
+edition = "2024"
+description = "Native macOS GPUI desktop app for wireless iOS 17+/27+ GPS location simulation"
+
+[[bin]]
+name = "ios-location"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+chrono = "0.4"
+gpui = "0.2.2"
+image = { version = "0.25.1", default-features = false, features = ["png", "jpeg", "webp"] }
+libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+smallvec = "1.13"
+unicode-segmentation = "1"
+ureq = { version = "3", features = ["json"] }
+urlencoding = "2"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

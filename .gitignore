@@ -1,4 +1,5 @@
-# Build outputs & macOS bundles
+# Rust & Cargo build outputs
+target/
 build/
 *.app/
 *.dmg
@@ -10,8 +11,3 @@ build/
 .vscode/
 *.swp
 *.swo
-
-# Go test / coverage artifacts
-*.test
-*.out
-coverage.txt
